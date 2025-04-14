@@ -51,7 +51,7 @@ export class TtsService {
    * This handles quotes, apostrophes, and other special characters
    */
   private escapeShellArg(arg: string): string {
-    // Replace all single quotes with the sequence: '"'"'
+    // Replace all single quotes with the sequence: '\''
     // This works by ending the current single-quoted string,
     // adding a double-quoted single quote, and starting a new single-quoted string
     return `'${arg.replace(/'/g, "'\\''")}'`;
@@ -61,6 +61,10 @@ export class TtsService {
     const venvPath = this.configService.get<string>(
       'TTS_VENV_PATH',
       '~/tts-env-py310',
+    );
+    const outputDir = this.configService.get<string>(
+      'TTS_OUTPUT_DIR',
+      './temp_outputs',
     );
     const defaultModel = this.configService.get<string>(
       'TTS_DEFAULT_MODEL',
@@ -84,48 +88,55 @@ export class TtsService {
     const uuid = uuidv4();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const outputFilename = `tts_${speaker}_${speed}_${timestamp}_${uuid.slice(0, 8)}.wav`;
-
-    // Define file paths
-    const workingDir = process.cwd();
-    const filesDir = path.join(workingDir, 'files');
-    const finalOutputPath = path.join(filesDir, outputFilename);
-
-    // Use a fixed output filename for the TTS command
-    // Some versions of TTS ignore the --out_path and save to tts_output.wav
-    const ttsDefaultOutput = path.join(workingDir, 'tts_output.wav');
+    const outputPath = path.join(outputDir, outputFilename);
 
     // Properly escape the text for shell command
     const escapedText = this.escapeShellArg(generateDto.text);
 
-    // Construct the TTS command with properly escaped arguments
-    // Note: We're using a fixed output filename and will move it later
-    const ttsCommand = `cd ${workingDir} && source ${venvPath}/bin/activate && tts --text ${escapedText} --model_name "${model}" --speaker_idx "${speaker}" ${speedParam}`;
+    // Create a script file to run the TTS command
+    // This helps avoid issues with command line arguments
+    const scriptName = `tts_script_${uuid.slice(0, 8)}.sh`;
+    const scriptPath = path.join(outputDir, scriptName);
 
-    this.logger.log(`Executing TTS command: ${ttsCommand}`);
+    // Script content with explicit output path
+    const scriptContent = `#!/bin/bash
+source ${venvPath}/bin/activate
+tts --text ${escapedText} --model_name "${model}" --speaker_idx "${speaker}" ${speedParam} --out_path "${outputPath}"
+`;
+
+    // Write the script to file
+    fs.writeFileSync(scriptPath, scriptContent, { mode: 0o755 }); // Make executable
+
+    this.logger.log(`Created TTS script at: ${scriptPath}`);
+    this.logger.log(`Script content: ${scriptContent}`);
+
     try {
-      // Execute the command
-      const { stdout, stderr } = await execPromise(`bash -c '${ttsCommand}'`);
+      // Execute the script
+      const { stdout, stderr } = await execPromise(`bash ${scriptPath}`);
       this.logger.log(`TTS generation stdout: ${stdout}`);
       if (stderr) {
         this.logger.warn(`TTS generation stderr: ${stderr}`);
       }
 
-      // Check if the default output file exists
-      if (!fs.existsSync(ttsDefaultOutput)) {
+      // Check if the file exists
+      if (!fs.existsSync(outputPath)) {
         throw new Error('TTS command did not generate output file');
       }
 
-      // Move the file to the desired location
-      fs.copyFileSync(ttsDefaultOutput, finalOutputPath);
-
-      // Clean up the default output file
-      fs.unlinkSync(ttsDefaultOutput);
+      // Move file to the files directory
+      const filesDir = path.join(process.cwd(), 'files');
+      const finalOutputPath = path.join(filesDir, outputFilename);
+      fs.copyFileSync(outputPath, finalOutputPath);
 
       // Create file entity directly using the repository
       const filePath = `/${outputFilename}`;
       const file = await this.fileRepository.create({
         path: filePath,
       });
+
+      // Clean up temporary files
+      fs.unlinkSync(outputPath); // Remove temp output file
+      fs.unlinkSync(scriptPath); // Remove script file
 
       // Construct the final URL
       const backendDomain = this.configService.get(
@@ -142,6 +153,11 @@ export class TtsService {
         speed,
       };
     } catch (error) {
+      // Clean up the script file even on error
+      if (fs.existsSync(scriptPath)) {
+        fs.unlinkSync(scriptPath);
+      }
+
       this.logger.error(
         `Error generating speech: ${error.message}`,
         error.stack,
