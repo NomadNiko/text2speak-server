@@ -32,6 +32,12 @@ export class TtsService {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    // Ensure files directory exists
+    const filesDir = path.join(process.cwd(), 'files');
+    if (!fs.existsSync(filesDir)) {
+      fs.mkdirSync(filesDir, { recursive: true });
+    }
+
     // Load voice data from configuration
     this.availableSpeakers = getVoiceMap();
     this.defaultSpeaker = this.configService.get<string>(
@@ -56,10 +62,6 @@ export class TtsService {
       'TTS_VENV_PATH',
       '~/tts-env-py310',
     );
-    const outputDir = this.configService.get<string>(
-      'TTS_OUTPUT_DIR',
-      './temp_outputs',
-    );
     const defaultModel = this.configService.get<string>(
       'TTS_DEFAULT_MODEL',
       'tts_models/en/vctk/vits',
@@ -82,13 +84,22 @@ export class TtsService {
     const uuid = uuidv4();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const outputFilename = `tts_${speaker}_${speed}_${timestamp}_${uuid.slice(0, 8)}.wav`;
-    const tempOutputPath = path.join(outputDir, outputFilename);
+
+    // Define file paths
+    const workingDir = process.cwd();
+    const filesDir = path.join(workingDir, 'files');
+    const finalOutputPath = path.join(filesDir, outputFilename);
+
+    // Use a fixed output filename for the TTS command
+    // Some versions of TTS ignore the --out_path and save to tts_output.wav
+    const ttsDefaultOutput = path.join(workingDir, 'tts_output.wav');
 
     // Properly escape the text for shell command
     const escapedText = this.escapeShellArg(generateDto.text);
 
     // Construct the TTS command with properly escaped arguments
-    const ttsCommand = `source ${venvPath}/bin/activate && tts --text ${escapedText} --model_name "${model}" --speaker_idx "${speaker}" ${speedParam} --out_path "${tempOutputPath}"`;
+    // Note: We're using a fixed output filename and will move it later
+    const ttsCommand = `cd ${workingDir} && source ${venvPath}/bin/activate && tts --text ${escapedText} --model_name "${model}" --speaker_idx "${speaker}" ${speedParam}`;
 
     this.logger.log(`Executing TTS command: ${ttsCommand}`);
     try {
@@ -99,29 +110,22 @@ export class TtsService {
         this.logger.warn(`TTS generation stderr: ${stderr}`);
       }
 
-      // Check if file exists
-      if (!fs.existsSync(tempOutputPath)) {
+      // Check if the default output file exists
+      if (!fs.existsSync(ttsDefaultOutput)) {
         throw new Error('TTS command did not generate output file');
       }
 
+      // Move the file to the desired location
+      fs.copyFileSync(ttsDefaultOutput, finalOutputPath);
+
+      // Clean up the default output file
+      fs.unlinkSync(ttsDefaultOutput);
+
       // Create file entity directly using the repository
-      // CHANGE: Store just the filename as the path
       const filePath = `/${outputFilename}`;
-
-      // Move file to the files directory
-      const filesDir = path.join(process.cwd(), 'files');
-      if (!fs.existsSync(filesDir)) {
-        fs.mkdirSync(filesDir, { recursive: true });
-      }
-      fs.copyFileSync(tempOutputPath, path.join(filesDir, outputFilename));
-
-      // Create the file record in the database
       const file = await this.fileRepository.create({
         path: filePath,
       });
-
-      // Clean up temp file
-      fs.unlinkSync(tempOutputPath);
 
       // Construct the final URL
       const backendDomain = this.configService.get(
