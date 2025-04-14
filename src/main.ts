@@ -12,11 +12,16 @@ import { AppModule } from './app.module';
 import validationOptions from './utils/validation-options';
 import { AllConfigType } from './config/config.type';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
+import express from 'express';
+import path from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   const configService = app.get(ConfigService<AllConfigType>);
+
+  // Add this line to serve static files from the 'files' directory
+  app.use('/api/v1/files', express.static(path.join(process.cwd(), 'files')));
 
   app.enableShutdownHooks();
   app.setGlobalPrefix(

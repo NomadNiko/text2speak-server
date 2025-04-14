@@ -15,7 +15,6 @@ const execPromise = promisify(exec);
 @Injectable()
 export class TtsService {
   private readonly logger = new Logger(TtsService.name);
-
   // Available speakers with their names
   private readonly availableSpeakers = {
     p225: 'p225',
@@ -186,7 +185,6 @@ export class TtsService {
 
     // Construct the TTS command - use speaker name directly
     const ttsCommand = `source ${venvPath}/bin/activate && tts --text "${sanitizedText}" --model_name "${model}" --speaker_idx "${speaker}" ${speedParam} --out_path "${tempOutputPath}"`;
-
     this.logger.log(`Executing TTS command: ${ttsCommand}`);
 
     try {
@@ -203,14 +201,14 @@ export class TtsService {
       }
 
       // Create file entity directly using the repository
-      const filePath = `/api/v1/files/${outputFilename}`;
+      // CHANGE: Store just the filename as the path
+      const filePath = `/${outputFilename}`;
 
       // Move file to the files directory
       const filesDir = path.join(process.cwd(), 'files');
       if (!fs.existsSync(filesDir)) {
         fs.mkdirSync(filesDir, { recursive: true });
       }
-
       fs.copyFileSync(tempOutputPath, path.join(filesDir, outputFilename));
 
       // Create the file record in the database
@@ -226,7 +224,7 @@ export class TtsService {
         'BACKEND_DOMAIN',
         'https://t2s.menutraining.com',
       );
-      const fullUrl = `${backendDomain}${filePath}`;
+      const fullUrl = `${backendDomain}/api/v1/files/${outputFilename}`;
 
       return {
         success: true,
