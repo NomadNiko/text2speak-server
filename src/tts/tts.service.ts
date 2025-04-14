@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FilesService } from '../files/files.service';
 import { TtsGenerateDto, SpeedEnum } from './dto/tts-generate.dto';
 import { TtsResponseDto } from './dto/tts-response.dto';
+import { FileRepository } from '../files/infrastructure/persistence/file.repository';
 
 const execPromise = promisify(exec);
 
@@ -16,7 +17,7 @@ const execPromise = promisify(exec);
 export class TtsService {
   private readonly logger = new Logger(TtsService.name);
 
-  // Available speakers - using speaker names as keys
+  // Available speakers with their names
   private readonly availableSpeakers = {
     p225: 'p225',
     p226: 'p226',
@@ -130,7 +131,7 @@ export class TtsService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly filesService: FilesService,
+    private readonly fileRepository: FileRepository,
   ) {
     // Ensure output directory exists
     const outputDir = this.configService.get<string>(
@@ -162,9 +163,6 @@ export class TtsService {
 
     // Handle parameters
     const speaker = generateDto.speaker || defaultSpeaker;
-    // Use the speaker name directly
-    const speakerName = speaker;
-
     const model = generateDto.model || defaultModel;
     const speed = generateDto.speed || SpeedEnum.NORMAL;
 
@@ -188,7 +186,7 @@ export class TtsService {
       .replace(/`/g, '\\`');
 
     // Construct the TTS command - use speaker name directly
-    const ttsCommand = `source ${venvPath}/bin/activate && tts --text "${sanitizedText}" --model_name "${model}" --speaker_idx "${speakerName}" ${speedParam} --out_path "${outputPath}"`;
+    const ttsCommand = `source ${venvPath}/bin/activate && tts --text "${sanitizedText}" --model_name "${model}" --speaker_idx "${speaker}" ${speedParam} --out_path "${outputPath}"`;
 
     this.logger.log(`Executing TTS command: ${ttsCommand}`);
 
@@ -205,26 +203,30 @@ export class TtsService {
         throw new Error('TTS command did not generate output file');
       }
 
-      // Create a file entity and upload to S3 using your existing file service
-      const fileData = {
+      // Create a file entity - use the existing file repository pattern
+      const file = await this.fileRepository.create({
         path: `tts-outputs/${outputFilename}`,
-      };
+      });
 
-      // Read the file content
-      const fileContent = fs.readFileSync(outputPath);
+      // Move the file to where your file service expects it
+      // This depends on your current FILE_DRIVER configuration
+      const fileDriver = this.configService.get('FILE_DRIVER', 'local');
 
-      // Upload the file using S3
-      const s3Url = await this.uploadToS3(
-        outputPath,
-        `tts-outputs/${outputFilename}`,
-      );
+      if (fileDriver === 'local') {
+        // If using local storage
+        const publicDir = path.join(process.cwd(), 'files');
+        if (!fs.existsSync(publicDir)) {
+          fs.mkdirSync(publicDir, { recursive: true });
+        }
+        fs.copyFileSync(outputPath, path.join(publicDir, outputFilename));
+      }
 
-      // Clean up local file
+      // Clean up temp file
       fs.unlinkSync(outputPath);
 
       return {
         success: true,
-        url: s3Url,
+        url: file.path,
         filename: outputFilename,
         speaker,
         speed,
@@ -235,35 +237,6 @@ export class TtsService {
         error.stack,
       );
       throw new Error(`Failed to generate speech: ${error.message}`);
-    }
-  }
-
-  // Method to upload to S3 using your existing infrastructure
-  private async uploadToS3(filePath: string, s3Key: string): Promise<string> {
-    try {
-      // For S3 upload in your existing structure
-      const AWS = require('aws-sdk');
-      const fs = require('fs');
-      const s3 = new AWS.S3({
-        region: this.configService.get('AWS_S3_REGION'),
-        credentials: {
-          accessKeyId: this.configService.get('ACCESS_KEY_ID'),
-          secretAccessKey: this.configService.get('SECRET_ACCESS_KEY'),
-        },
-      });
-      const fileContent = fs.readFileSync(filePath);
-      const params = {
-        Bucket: this.configService.get('AWS_DEFAULT_S3_BUCKET'),
-        Key: s3Key,
-        Body: fileContent,
-        ContentType: 'audio/wav',
-        ACL: 'public-read',
-      };
-      const result = await s3.upload(params).promise();
-      return result.Location;
-    } catch (error) {
-      this.logger.error(`Error uploading to S3: ${error.message}`, error.stack);
-      throw new Error(`Failed to upload to S3: ${error.message}`);
     }
   }
 
@@ -291,24 +264,6 @@ export class TtsService {
       const checkTtsCommand = `bash -c 'source ${venvPath}/bin/activate && command -v tts >/dev/null 2>&1 && echo "available" || echo "not available"'`;
       const { stdout: ttsStatus } = await execPromise(checkTtsCommand);
 
-      // Check S3 connection
-      let s3Status = 'unknown';
-      try {
-        // Simple S3 connection test
-        const AWS = require('aws-sdk');
-        const s3 = new AWS.S3({
-          region: this.configService.get('AWS_S3_REGION'),
-          credentials: {
-            accessKeyId: this.configService.get('ACCESS_KEY_ID'),
-            secretAccessKey: this.configService.get('SECRET_ACCESS_KEY'),
-          },
-        });
-        await s3.listBuckets().promise();
-        s3Status = 'connected';
-      } catch (s3Error) {
-        s3Status = `error: ${s3Error.message}`;
-      }
-
       return {
         status: 'ok',
         environment: {
@@ -318,10 +273,6 @@ export class TtsService {
         tts: {
           command: 'tts',
           status: ttsStatus.trim(),
-        },
-        s3: {
-          bucket: this.configService.get<string>('AWS_DEFAULT_S3_BUCKET'),
-          status: s3Status,
         },
       };
     } catch (error) {
@@ -334,12 +285,5 @@ export class TtsService {
         message: error.message,
       };
     }
-  }
-
-  // Helper function to select a random speaker
-  private getRandomSpeaker(): string {
-    const speakerKeys = Object.keys(this.availableSpeakers);
-    const randomIndex = Math.floor(Math.random() * speakerKeys.length);
-    return speakerKeys[randomIndex];
   }
 }

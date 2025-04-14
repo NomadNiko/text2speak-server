@@ -6,7 +6,10 @@ import { TtsService } from './tts.service';
 import { FilesModule } from '../files/files.module';
 
 @Module({
-  imports: [ConfigModule, FilesModule],
+  imports: [
+    ConfigModule,
+    FilesModule, // Import FilesModule to access FileRepository
+  ],
   controllers: [TtsController],
   providers: [TtsService],
   exports: [TtsService],
