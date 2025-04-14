@@ -6,10 +6,9 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { FilesService } from '../files/files.service';
+import { FileRepository } from '../files/infrastructure/persistence/file.repository';
 import { TtsGenerateDto, SpeedEnum } from './dto/tts-generate.dto';
 import { TtsResponseDto } from './dto/tts-response.dto';
-import { FileRepository } from '../files/infrastructure/persistence/file.repository';
 
 const execPromise = promisify(exec);
 
@@ -178,7 +177,7 @@ export class TtsService {
     const uuid = uuidv4();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const outputFilename = `tts_${speaker}_${speed}_${timestamp}_${uuid.slice(0, 8)}.wav`;
-    const outputPath = path.join(outputDir, outputFilename);
+    const tempOutputPath = path.join(outputDir, outputFilename);
 
     // Format text to prevent command injection
     const sanitizedText = generateDto.text
@@ -186,7 +185,7 @@ export class TtsService {
       .replace(/`/g, '\\`');
 
     // Construct the TTS command - use speaker name directly
-    const ttsCommand = `source ${venvPath}/bin/activate && tts --text "${sanitizedText}" --model_name "${model}" --speaker_idx "${speaker}" ${speedParam} --out_path "${outputPath}"`;
+    const ttsCommand = `source ${venvPath}/bin/activate && tts --text "${sanitizedText}" --model_name "${model}" --speaker_idx "${speaker}" ${speedParam} --out_path "${tempOutputPath}"`;
 
     this.logger.log(`Executing TTS command: ${ttsCommand}`);
 
@@ -199,34 +198,39 @@ export class TtsService {
       }
 
       // Check if file exists
-      if (!fs.existsSync(outputPath)) {
+      if (!fs.existsSync(tempOutputPath)) {
         throw new Error('TTS command did not generate output file');
       }
 
-      // Create a file entity - use the existing file repository pattern
-      const file = await this.fileRepository.create({
-        path: `tts-outputs/${outputFilename}`,
-      });
+      // Create file entity directly using the repository
+      const filePath = `/api/v1/files/${outputFilename}`;
 
-      // Move the file to where your file service expects it
-      // This depends on your current FILE_DRIVER configuration
-      const fileDriver = this.configService.get('FILE_DRIVER', 'local');
-
-      if (fileDriver === 'local') {
-        // If using local storage
-        const publicDir = path.join(process.cwd(), 'files');
-        if (!fs.existsSync(publicDir)) {
-          fs.mkdirSync(publicDir, { recursive: true });
-        }
-        fs.copyFileSync(outputPath, path.join(publicDir, outputFilename));
+      // Move file to the files directory
+      const filesDir = path.join(process.cwd(), 'files');
+      if (!fs.existsSync(filesDir)) {
+        fs.mkdirSync(filesDir, { recursive: true });
       }
 
+      fs.copyFileSync(tempOutputPath, path.join(filesDir, outputFilename));
+
+      // Create the file record in the database
+      const file = await this.fileRepository.create({
+        path: filePath,
+      });
+
       // Clean up temp file
-      fs.unlinkSync(outputPath);
+      fs.unlinkSync(tempOutputPath);
+
+      // Construct the final URL
+      const backendDomain = this.configService.get(
+        'BACKEND_DOMAIN',
+        'https://t2s.menutraining.com',
+      );
+      const fullUrl = `${backendDomain}${filePath}`;
 
       return {
         success: true,
-        url: file.path,
+        url: fullUrl,
         filename: outputFilename,
         speaker,
         speed,
