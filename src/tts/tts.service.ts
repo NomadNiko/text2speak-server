@@ -1,3 +1,4 @@
+// src/tts/tts.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { exec } from 'child_process';
@@ -15,116 +16,116 @@ const execPromise = promisify(exec);
 export class TtsService {
   private readonly logger = new Logger(TtsService.name);
 
-  // Available speakers
+  // Available speakers - using speaker names as keys
   private readonly availableSpeakers = {
-    p225: '1',
-    p226: '2',
-    p227: '3',
-    p228: '4',
-    p229: '5',
-    p230: '6',
-    p231: '7',
-    p232: '8',
-    p233: '9',
-    p234: '10',
-    p236: '11',
-    p237: '12',
-    p238: '13',
-    p239: '14',
-    p240: '15',
-    p241: '16',
-    p243: '17',
-    p244: '18',
-    p245: '19',
-    p246: '20',
-    p247: '21',
-    p248: '22',
-    p249: '23',
-    p250: '24',
-    p251: '25',
-    p252: '26',
-    p253: '27',
-    p254: '28',
-    p255: '29',
-    p256: '30',
-    p257: '31',
-    p258: '32',
-    p259: '33',
-    p260: '34',
-    p261: '35',
-    p262: '36',
-    p263: '37',
-    p264: '38',
-    p265: '39',
-    p266: '40',
-    p267: '41',
-    p268: '42',
-    p269: '43',
-    p270: '44',
-    p271: '45',
-    p272: '46',
-    p273: '47',
-    p274: '48',
-    p275: '49',
-    p276: '50',
-    p277: '51',
-    p278: '52',
-    p279: '53',
-    p280: '54',
-    p281: '55',
-    p282: '56',
-    p283: '57',
-    p284: '58',
-    p285: '59',
-    p286: '60',
-    p287: '61',
-    p288: '62',
-    p292: '63',
-    p293: '64',
-    p294: '65',
-    p295: '66',
-    p297: '67',
-    p298: '68',
-    p299: '69',
-    p300: '70',
-    p301: '71',
-    p302: '72',
-    p303: '73',
-    p304: '74',
-    p305: '75',
-    p306: '76',
-    p307: '77',
-    p308: '78',
-    p310: '79',
-    p311: '80',
-    p312: '81',
-    p313: '82',
-    p314: '83',
-    p316: '84',
-    p317: '85',
-    p318: '86',
-    p323: '87',
-    p326: '88',
-    p329: '89',
-    p330: '90',
-    p333: '91',
-    p334: '92',
-    p335: '93',
-    p336: '94',
-    p339: '95',
-    p340: '96',
-    p341: '97',
-    p343: '98',
-    p345: '99',
-    p347: '100',
-    p351: '101',
-    p360: '102',
-    p361: '103',
-    p362: '104',
-    p363: '105',
-    p364: '106',
-    p374: '107',
-    p376: '108',
+    p225: 'p225',
+    p226: 'p226',
+    p227: 'p227',
+    p228: 'p228',
+    p229: 'p229',
+    p230: 'p230',
+    p231: 'p231',
+    p232: 'p232',
+    p233: 'p233',
+    p234: 'p234',
+    p236: 'p236',
+    p237: 'p237',
+    p238: 'p238',
+    p239: 'p239',
+    p240: 'p240',
+    p241: 'p241',
+    p243: 'p243',
+    p244: 'p244',
+    p245: 'p245',
+    p246: 'p246',
+    p247: 'p247',
+    p248: 'p248',
+    p249: 'p249',
+    p250: 'p250',
+    p251: 'p251',
+    p252: 'p252',
+    p253: 'p253',
+    p254: 'p254',
+    p255: 'p255',
+    p256: 'p256',
+    p257: 'p257',
+    p258: 'p258',
+    p259: 'p259',
+    p260: 'p260',
+    p261: 'p261',
+    p262: 'p262',
+    p263: 'p263',
+    p264: 'p264',
+    p265: 'p265',
+    p266: 'p266',
+    p267: 'p267',
+    p268: 'p268',
+    p269: 'p269',
+    p270: 'p270',
+    p271: 'p271',
+    p272: 'p272',
+    p273: 'p273',
+    p274: 'p274',
+    p275: 'p275',
+    p276: 'p276',
+    p277: 'p277',
+    p278: 'p278',
+    p279: 'p279',
+    p280: 'p280',
+    p281: 'p281',
+    p282: 'p282',
+    p283: 'p283',
+    p284: 'p284',
+    p285: 'p285',
+    p286: 'p286',
+    p287: 'p287',
+    p288: 'p288',
+    p292: 'p292',
+    p293: 'p293',
+    p294: 'p294',
+    p295: 'p295',
+    p297: 'p297',
+    p298: 'p298',
+    p299: 'p299',
+    p300: 'p300',
+    p301: 'p301',
+    p302: 'p302',
+    p303: 'p303',
+    p304: 'p304',
+    p305: 'p305',
+    p306: 'p306',
+    p307: 'p307',
+    p308: 'p308',
+    p310: 'p310',
+    p311: 'p311',
+    p312: 'p312',
+    p313: 'p313',
+    p314: 'p314',
+    p316: 'p316',
+    p317: 'p317',
+    p318: 'p318',
+    p323: 'p323',
+    p326: 'p326',
+    p329: 'p329',
+    p330: 'p330',
+    p333: 'p333',
+    p334: 'p334',
+    p335: 'p335',
+    p336: 'p336',
+    p339: 'p339',
+    p340: 'p340',
+    p341: 'p341',
+    p343: 'p343',
+    p345: 'p345',
+    p347: 'p347',
+    p351: 'p351',
+    p360: 'p360',
+    p361: 'p361',
+    p362: 'p362',
+    p363: 'p363',
+    p364: 'p364',
+    p374: 'p374',
+    p376: 'p376',
   };
 
   constructor(
@@ -161,8 +162,9 @@ export class TtsService {
 
     // Handle parameters
     const speaker = generateDto.speaker || defaultSpeaker;
-    const speakerIdx =
-      this.availableSpeakers[speaker] || this.availableSpeakers[defaultSpeaker];
+    // Use the speaker name directly
+    const speakerName = speaker;
+
     const model = generateDto.model || defaultModel;
     const speed = generateDto.speed || SpeedEnum.NORMAL;
 
@@ -185,8 +187,8 @@ export class TtsService {
       .replace(/"/g, '\\"')
       .replace(/`/g, '\\`');
 
-    // Construct the TTS command
-    const ttsCommand = `source ${venvPath}/bin/activate && tts --text "${sanitizedText}" --model_name "${model}" --speaker_idx "${speakerIdx}" ${speedParam} --out_path "${outputPath}"`;
+    // Construct the TTS command - use speaker name directly
+    const ttsCommand = `source ${venvPath}/bin/activate && tts --text "${sanitizedText}" --model_name "${model}" --speaker_idx "${speakerName}" ${speedParam} --out_path "${outputPath}"`;
 
     this.logger.log(`Executing TTS command: ${ttsCommand}`);
 
@@ -194,7 +196,6 @@ export class TtsService {
       // Execute the command
       const { stdout, stderr } = await execPromise(`bash -c '${ttsCommand}'`);
       this.logger.log(`TTS generation stdout: ${stdout}`);
-
       if (stderr) {
         this.logger.warn(`TTS generation stderr: ${stderr}`);
       }
@@ -212,7 +213,7 @@ export class TtsService {
       // Read the file content
       const fileContent = fs.readFileSync(outputPath);
 
-      // Upload the file using S3 (we'll need to implement this method)
+      // Upload the file using S3
       const s3Url = await this.uploadToS3(
         outputPath,
         `tts-outputs/${outputFilename}`,
@@ -239,15 +240,10 @@ export class TtsService {
 
   // Method to upload to S3 using your existing infrastructure
   private async uploadToS3(filePath: string, s3Key: string): Promise<string> {
-    // Implement file upload to S3
-    // This will depend on your existing file handling infrastructure
-
-    // Example implementation - you'll need to adjust this based on your actual FilesService implementation
     try {
       // For S3 upload in your existing structure
       const AWS = require('aws-sdk');
       const fs = require('fs');
-
       const s3 = new AWS.S3({
         region: this.configService.get('AWS_S3_REGION'),
         credentials: {
@@ -255,7 +251,6 @@ export class TtsService {
           secretAccessKey: this.configService.get('SECRET_ACCESS_KEY'),
         },
       });
-
       const fileContent = fs.readFileSync(filePath);
       const params = {
         Bucket: this.configService.get('AWS_DEFAULT_S3_BUCKET'),
@@ -264,7 +259,6 @@ export class TtsService {
         ContentType: 'audio/wav',
         ACL: 'public-read',
       };
-
       const result = await s3.upload(params).promise();
       return result.Location;
     } catch (error) {
@@ -288,7 +282,6 @@ export class TtsService {
       'TTS_VENV_PATH',
       '~/tts-env-py310',
     );
-
     try {
       // Check if TTS environment exists
       const checkEnvCommand = `bash -c '[ -d "${venvPath}" ] && echo "exists" || echo "not found"'`;
@@ -310,7 +303,6 @@ export class TtsService {
             secretAccessKey: this.configService.get('SECRET_ACCESS_KEY'),
           },
         });
-
         await s3.listBuckets().promise();
         s3Status = 'connected';
       } catch (s3Error) {
