@@ -1,22 +1,14 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TtsService } from './tts.service';
 import { TtsGenerateDto } from './dto/tts-generate.dto';
 import { TtsResponseDto } from './dto/tts-response.dto';
-import { TtsApiKeyGuard } from './guards/tts-api-key.guard';
 
 @ApiTags('Text-to-Speech')
 @Controller({
   path: 'tts',
   version: '1',
 })
-@UseGuards(TtsApiKeyGuard)
-@ApiBearerAuth('x-api-key')
 export class TtsController {
   constructor(private readonly ttsService: TtsService) {}
 
