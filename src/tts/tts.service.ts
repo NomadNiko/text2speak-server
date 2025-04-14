@@ -5,7 +5,7 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { S3Service } from '../files/services/s3.service'; // Adjust import path as needed
+import { FilesService } from '../files/files.service';
 import { TtsGenerateDto, SpeedEnum } from './dto/tts-generate.dto';
 import { TtsResponseDto } from './dto/tts-response.dto';
 
@@ -37,12 +37,99 @@ export class TtsService {
     p244: '18',
     p245: '19',
     p246: '20',
-    // ...other speakers as in your script
+    p247: '21',
+    p248: '22',
+    p249: '23',
+    p250: '24',
+    p251: '25',
+    p252: '26',
+    p253: '27',
+    p254: '28',
+    p255: '29',
+    p256: '30',
+    p257: '31',
+    p258: '32',
+    p259: '33',
+    p260: '34',
+    p261: '35',
+    p262: '36',
+    p263: '37',
+    p264: '38',
+    p265: '39',
+    p266: '40',
+    p267: '41',
+    p268: '42',
+    p269: '43',
+    p270: '44',
+    p271: '45',
+    p272: '46',
+    p273: '47',
+    p274: '48',
+    p275: '49',
+    p276: '50',
+    p277: '51',
+    p278: '52',
+    p279: '53',
+    p280: '54',
+    p281: '55',
+    p282: '56',
+    p283: '57',
+    p284: '58',
+    p285: '59',
+    p286: '60',
+    p287: '61',
+    p288: '62',
+    p292: '63',
+    p293: '64',
+    p294: '65',
+    p295: '66',
+    p297: '67',
+    p298: '68',
+    p299: '69',
+    p300: '70',
+    p301: '71',
+    p302: '72',
+    p303: '73',
+    p304: '74',
+    p305: '75',
+    p306: '76',
+    p307: '77',
+    p308: '78',
+    p310: '79',
+    p311: '80',
+    p312: '81',
+    p313: '82',
+    p314: '83',
+    p316: '84',
+    p317: '85',
+    p318: '86',
+    p323: '87',
+    p326: '88',
+    p329: '89',
+    p330: '90',
+    p333: '91',
+    p334: '92',
+    p335: '93',
+    p336: '94',
+    p339: '95',
+    p340: '96',
+    p341: '97',
+    p343: '98',
+    p345: '99',
+    p347: '100',
+    p351: '101',
+    p360: '102',
+    p361: '103',
+    p362: '104',
+    p363: '105',
+    p364: '106',
+    p374: '107',
+    p376: '108',
   };
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly s3Service: S3Service, // Make sure this is properly injected
+    private readonly filesService: FilesService,
   ) {
     // Ensure output directory exists
     const outputDir = this.configService.get<string>(
@@ -117,9 +204,19 @@ export class TtsService {
         throw new Error('TTS command did not generate output file');
       }
 
-      // Upload to S3
-      const s3Key = `tts-outputs/${outputFilename}`;
-      const s3Url = await this.s3Service.upload(outputPath, s3Key, 'audio/wav');
+      // Create a file entity and upload to S3 using your existing file service
+      const fileData = {
+        path: `tts-outputs/${outputFilename}`,
+      };
+
+      // Read the file content
+      const fileContent = fs.readFileSync(outputPath);
+
+      // Upload the file using S3 (we'll need to implement this method)
+      const s3Url = await this.uploadToS3(
+        outputPath,
+        `tts-outputs/${outputFilename}`,
+      );
 
       // Clean up local file
       fs.unlinkSync(outputPath);
@@ -137,6 +234,42 @@ export class TtsService {
         error.stack,
       );
       throw new Error(`Failed to generate speech: ${error.message}`);
+    }
+  }
+
+  // Method to upload to S3 using your existing infrastructure
+  private async uploadToS3(filePath: string, s3Key: string): Promise<string> {
+    // Implement file upload to S3
+    // This will depend on your existing file handling infrastructure
+
+    // Example implementation - you'll need to adjust this based on your actual FilesService implementation
+    try {
+      // For S3 upload in your existing structure
+      const AWS = require('aws-sdk');
+      const fs = require('fs');
+
+      const s3 = new AWS.S3({
+        region: this.configService.get('AWS_S3_REGION'),
+        credentials: {
+          accessKeyId: this.configService.get('ACCESS_KEY_ID'),
+          secretAccessKey: this.configService.get('SECRET_ACCESS_KEY'),
+        },
+      });
+
+      const fileContent = fs.readFileSync(filePath);
+      const params = {
+        Bucket: this.configService.get('AWS_DEFAULT_S3_BUCKET'),
+        Key: s3Key,
+        Body: fileContent,
+        ContentType: 'audio/wav',
+        ACL: 'public-read',
+      };
+
+      const result = await s3.upload(params).promise();
+      return result.Location;
+    } catch (error) {
+      this.logger.error(`Error uploading to S3: ${error.message}`, error.stack);
+      throw new Error(`Failed to upload to S3: ${error.message}`);
     }
   }
 
@@ -168,8 +301,17 @@ export class TtsService {
       // Check S3 connection
       let s3Status = 'unknown';
       try {
-        // Adapt this to your S3Service implementation
-        await this.s3Service.testConnection();
+        // Simple S3 connection test
+        const AWS = require('aws-sdk');
+        const s3 = new AWS.S3({
+          region: this.configService.get('AWS_S3_REGION'),
+          credentials: {
+            accessKeyId: this.configService.get('ACCESS_KEY_ID'),
+            secretAccessKey: this.configService.get('SECRET_ACCESS_KEY'),
+          },
+        });
+
+        await s3.listBuckets().promise();
         s3Status = 'connected';
       } catch (s3Error) {
         s3Status = `error: ${s3Error.message}`;
