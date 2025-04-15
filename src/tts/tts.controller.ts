@@ -29,8 +29,8 @@ export class TtsController {
   @Post('generate')
   @ApiOperation({ summary: 'Generate speech from text' })
   @ApiResponse({ status: 201, type: TtsResponseDto })
-  @ApiBearerAuth() // Add this decorator to indicate auth is required in Swagger
-  @UseGuards(AuthGuard('jwt')) // Add auth guard to secure the endpoint
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   async generateSpeech(
     @Body() generateDto: TtsGenerateDto,
     @Request() req,
