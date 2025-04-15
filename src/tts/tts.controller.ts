@@ -1,5 +1,6 @@
 // src/tts/tts.controller.ts
-import { Body, Controller, Get, Post } from '@nestjs/common';
+// Modified to include passing user ID
+import { Body, Controller, Get, Post, Request } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TtsService } from './tts.service';
 import { TtsGenerateDto } from './dto/tts-generate.dto';
@@ -18,8 +19,10 @@ export class TtsController {
   @ApiResponse({ status: 201, type: TtsResponseDto })
   async generateSpeech(
     @Body() generateDto: TtsGenerateDto,
+    @Request() req,
   ): Promise<TtsResponseDto> {
-    return this.ttsService.generateSpeech(generateDto);
+    const userId = req.user?.id;
+    return this.ttsService.generateSpeech(generateDto, userId);
   }
 
   @Get('voices')

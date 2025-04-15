@@ -28,6 +28,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { MongooseConfigService } from './database/mongoose-config.service';
 import { DatabaseConfig } from './database/config/database-config.type';
 import { TtsModule } from './tts/tts.module';
+import { TtsHistoryModule } from './tts-history/tts-history.module';
 
 // <database-block>
 const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
@@ -94,6 +95,7 @@ const infrastructureDatabaseModule = (databaseConfig() as DatabaseConfig)
     MailerModule,
     HomeModule,
     TtsModule,
+    TtsHistoryModule,
   ],
 })
 export class AppModule {}
