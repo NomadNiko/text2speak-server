@@ -1,10 +1,22 @@
 // src/tts/tts.controller.ts
-// Modified to include passing user ID
-import { Body, Controller, Get, Post, Request } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { TtsService } from './tts.service';
 import { TtsGenerateDto } from './dto/tts-generate.dto';
 import { TtsResponseDto } from './dto/tts-response.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('Text-to-Speech')
 @Controller({
@@ -17,6 +29,8 @@ export class TtsController {
   @Post('generate')
   @ApiOperation({ summary: 'Generate speech from text' })
   @ApiResponse({ status: 201, type: TtsResponseDto })
+  @ApiBearerAuth() // Add this decorator to indicate auth is required in Swagger
+  @UseGuards(AuthGuard('jwt')) // Add auth guard to secure the endpoint
   async generateSpeech(
     @Body() generateDto: TtsGenerateDto,
     @Request() req,
